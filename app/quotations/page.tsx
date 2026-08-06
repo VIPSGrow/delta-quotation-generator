@@ -226,7 +226,7 @@ export default function QuotationsPage() {
                                             <div key={it.id} className="relative shrink-0 group">
                                                 {it.image ? (
                                                     <img
-                                                        src={it.image}
+                                                        src={`/api/${it.image}`}
                                                         alt={it.itemName}
                                                         className="h-10 w-10 rounded object-cover border border-gray-100"
                                                     />

@@ -133,7 +133,7 @@ export default async function QuotationDetailPage({
                                         <td className="py-2.5 px-1 border">
                                             {item.image ? (
                                                 <img
-                                                    src={item.image}
+                                                    src={`/api/${item.image}`}
                                                     alt={item.itemName}
                                                     className="h-50 w-50 rounded object-cover border border-gray-100"
                                                 />

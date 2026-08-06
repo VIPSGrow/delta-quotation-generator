@@ -359,7 +359,7 @@ function CreateQuotationPage() {
                                             {/* Thumbnail */}
                                             {row.image ? (
                                                 <img
-                                                    src={row.image}
+                                                    src={`/api/${row.image}`}
                                                     alt={row.itemName}
                                                     className="h-7 w-7 shrink-0 rounded object-cover border border-gray-100"
                                                 />

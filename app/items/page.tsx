@@ -328,7 +328,7 @@ export default function ItemsPage() {
                                 <div className="flex items-center gap-3">
                                     {(imagePreview || form.image) ? (
                                         <img
-                                            src={form.image || imagePreview}
+                                            src={`/api${form.image}` || imagePreview}
                                             alt="Preview"
                                             className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0"
                                         />
@@ -485,7 +485,7 @@ export default function ItemsPage() {
                                     <div className="flex items-center gap-3 min-w-0">
                                         {item.image ? (
                                             <img
-                                                src={item.image}
+                                                src={`/api/${item.image}`}
                                                 alt={item.name}
                                                 className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0"
                                             />
