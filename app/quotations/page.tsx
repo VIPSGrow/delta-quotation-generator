@@ -22,6 +22,8 @@ interface Quotation {
         unit_value: number;
         finish: string;
         size: string;
+        cbm: number;
+        weight: number;
     }>;
 }
 
