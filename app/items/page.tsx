@@ -328,7 +328,11 @@ export default function ItemsPage() {
                                 <div className="flex items-center gap-3">
                                     {(imagePreview || form.image) ? (
                                         <img
-                                            src={`/api${form.image}` || imagePreview}
+                                            src={
+                                                form.image
+                                                    ? (form.image.startsWith('/api') ? form.image : `/api${form.image}`)
+                                                    : imagePreview
+                                            }
                                             alt="Preview"
                                             className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0"
                                         />
