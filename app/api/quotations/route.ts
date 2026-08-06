@@ -1,0 +1,144 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { verifyApiSession } from "@/lib/api-auth";
+
+// GET /api/quotations — list all quotations with line items
+export async function GET() {
+  const session = await verifyApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const quotations = await prisma.quotation.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { items: true },
+    });
+    return NextResponse.json({ quotations });
+  } catch (error) {
+    console.error("Get quotations error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch quotations." },
+      { status: 500 },
+    );
+  }
+}
+
+// POST /api/quotations — create a quotation with line items
+export async function POST(request: NextRequest) {
+  const session = await verifyApiSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const partyName =
+      typeof body.partyName === "string" ? body.partyName.trim() : "";
+    const partyPhone =
+      typeof body.partyPhone === "string" ? body.partyPhone.trim() : "";
+    const items = Array.isArray(body.items) ? body.items : [];
+
+    if (!partyName) {
+      return NextResponse.json(
+        { error: "Party name is required." },
+        { status: 400 },
+      );
+    }
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { error: "At least one item is required." },
+        { status: 400 },
+      );
+    }
+
+    // Validate and sanitize line items
+    const lineItems = items
+      .map((row: any) => {
+        const itemName =
+          typeof row.itemName === "string" ? row.itemName.trim() : "";
+        const qty = Number(row.qty) || 0;
+        const price = Number(row.price) || 0;
+        const unit_value =
+          row.unit_value === "" ||
+          row.unit_value === null ||
+          row.unit_value === undefined
+            ? 0
+            : Math.max(0, Math.floor(Number(row.unit_value)) || 0);
+        const finalQty = qty * (unit_value > 0 ? unit_value : 1);
+        const amount = finalQty * price;
+        const cbm =
+          row.cbm === "" || row.cbm === null || row.cbm === undefined
+            ? null
+            : Number(row.cbm);
+        const weight =
+          row.weight === "" || row.weight === null || row.weight === undefined
+            ? null
+            : Number(row.weight);
+        const image =
+          row.image === "" || row.image === null || row.image === undefined
+            ? null
+            : String(row.image);
+        const unit = typeof row.unit === "string" ? row.unit.trim() : "PCS";
+        const finish = typeof row.finish === "string" ? row.finish.trim() : "";
+        const size = typeof row.size === "string" ? row.size.trim() : "";
+        if (!itemName || qty <= 0) return null;
+        return {
+          itemName,
+          unit,
+          unit_value,
+          finish,
+          size,
+          qty,
+          price,
+          amount,
+          cbm,
+          weight,
+          image,
+        };
+      })
+      .filter(Boolean) as {
+      itemName: string;
+      unit: string;
+      unit_value: number;
+      finish: string;
+      size: string;
+      qty: number;
+      price: number;
+      amount: number;
+      cbm: number | null;
+      weight: number | null;
+      image: string | null;
+    }[];
+
+    if (lineItems.length === 0) {
+      return NextResponse.json(
+        { error: "At least one valid item is required." },
+        { status: 400 },
+      );
+    }
+
+    const totalAmount = lineItems.reduce((sum, i) => sum + i.amount, 0);
+
+    const quotation = await prisma.quotation.create({
+      data: {
+        partyName,
+        partyPhone: partyPhone || null,
+        totalAmount,
+        items: {
+          create: lineItems,
+        },
+      },
+      include: { items: true },
+    });
+
+    return NextResponse.json({ quotation }, { status: 201 });
+  } catch (error) {
+    console.error("Create quotation error:", error);
+    return NextResponse.json(
+      { error: "Failed to create quotation." },
+      { status: 500 },
+    );
+  }
+}

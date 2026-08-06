@@ -1,0 +1,55 @@
+// This is your Prisma schema file for SQLite
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+}
+
+model Item {
+  id           Int     @id @default(autoincrement())
+  name         String  @unique
+  unit         String  @default("PCS")
+  defaultPrice Float   @default(0)
+  image        String?
+  cbm          Float?
+  weight       Float?
+  finish       String  @default("")
+  size         String  @default("")
+  unit_value   Int     @default(0)
+}
+
+model Quotation {
+  id          Int      @id @default(autoincrement())
+  partyName   String
+  partyPhone  String?
+  totalAmount Float    @default(0)
+  createdAt   DateTime @default(now())
+  items       QuotationItem[]
+}
+
+model QuotationItem {
+  id          Int    @id @default(autoincrement())
+  quotationId Int
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  itemName    String
+  unit        String   @default("PCS")
+  unit_value  Int      @default(0)
+  finish      String   @default("")
+  size        String   @default("")
+  qty         Float    @default(1)
+  price       Float    @default(0)
+  amount      Float    @default(0)
+  cbm         Float?
+  weight      Float?
+  image       String?
+}
+
