@@ -66,6 +66,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
       body.unit_value === undefined
         ? 0
         : Math.max(0, Math.floor(Number(body.unit_value)) || 0);
+    const packageUnit =
+      typeof body.packageUnit === "string" ? body.packageUnit.trim() : "";
+    const priceConfig = body.priceConfig === "package" ? "package" : "qty";
 
     if (!name) {
       return NextResponse.json(
@@ -91,6 +94,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
         finish,
         size,
         unit_value,
+        packageUnit,
+        priceConfig,
       },
     });
 

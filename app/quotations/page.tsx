@@ -9,6 +9,7 @@ interface Quotation {
     id: number;
     partyName: string;
     partyPhone: string | null;
+    currency: string;
     totalAmount: number;
     createdAt: string;
     items: Array<{
@@ -36,6 +37,17 @@ function formatDate(iso: string) {
         minute: "2-digit",
     });
 }
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    AED: "د.إ",
+    CNY: "¥",
+};
+
+const getCurrencySymbol = (code: string) => CURRENCY_SYMBOLS[code] || code + " ";
 
 function exportToExcel(q: Quotation) {
     const quoteRef = `QT-${String(q.id).padStart(6, "0")}`;
@@ -214,7 +226,7 @@ export default function QuotationsPage() {
                                     </div>
                                     <div className="text-right shrink-0">
                                         <div className="font-bold text-indigo-600">
-                                            ₹{q.totalAmount.toLocaleString("en-IN")}
+                                            {getCurrencySymbol(q.currency)}{q.totalAmount.toLocaleString("en-IN")}
                                         </div>
                                     </div>
                                 </div>

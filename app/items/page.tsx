@@ -15,9 +15,11 @@ interface Item {
     finish: string;
     size: string;
     unit_value: number;
+    packageUnit: string;
+    priceConfig: "package" | "qty";
 }
 
-const emptyForm = { name: "", unit: "PCS", defaultPrice: "", image: "", cbm: "", weight: "", finish: "", size: "", unit_value: "" };
+const emptyForm = { name: "", unit: "PCS", defaultPrice: "", image: "", cbm: "", weight: "", finish: "", size: "", unit_value: "", packageUnit: "", priceConfig: "qty" };
 
 export default function ItemsPage() {
     const [items, setItems] = useState<Item[]>([]);
@@ -102,6 +104,8 @@ export default function ItemsPage() {
             finish: form.finish,
             size: form.size,
             unit_value: form.unit_value === "" ? 0 : Math.max(0, Math.floor(Number(form.unit_value)) || 0),
+            packageUnit: form.packageUnit,
+            priceConfig: form.priceConfig,
         };
 
         try {
@@ -140,6 +144,8 @@ export default function ItemsPage() {
             finish: item.finish || "",
             size: item.size || "",
             unit_value: item.unit_value === null || item.unit_value === undefined ? "" : String(item.unit_value),
+            packageUnit: item.packageUnit || "",
+            priceConfig: (item.priceConfig === "package" || item.priceConfig === "qty") ? item.priceConfig : "qty",
         });
         setImagePreview(item.image || "");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -180,21 +186,27 @@ export default function ItemsPage() {
             const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
             const parsedItems = rows
-                .map((row) => ({
-                    name: String(row.name ?? "").trim(),
-                    unit: String(row.unit ?? "PCS").trim() || "PCS",
-                    defaultPrice: Number(row.defaultPrice) || 0,
-                    image: row.image ? String(row.image).trim() : "",
-                    cbm: row.cbm === "" || row.cbm === undefined || row.cbm === null ? null : Number(row.cbm),
-                    weight: row.weight === "" || row.weight === undefined || row.weight === null ? null : Number(row.weight),
-                    finish: row.finish ? String(row.finish).trim() : "",
-                    size: row.size ? String(row.size).trim() : "",
-                    unit_value: row.unit_value === "" || row.unit_value === undefined || row.unit_value === null ? 0 : Math.max(0, Math.floor(Number(row.unit_value)) || 0),
-                }))
+                .map((row) => {
+                    const cbmVal = Number(row.cbm);
+                    const weightVal = Number(row.weight);
+                    return {
+                        name: String(row.name ?? "").trim(),
+                        unit: String(row.unit ?? "PCS").trim() || "PCS",
+                        defaultPrice: Number(row.defaultPrice) || 0,
+                        image: row.image ? String(row.image).trim() : "",
+                        cbm: row.cbm === "" || row.cbm === undefined || row.cbm === null || isNaN(cbmVal) ? null : cbmVal,
+                        weight: row.weight === "" || row.weight === undefined || row.weight === null || isNaN(weightVal) ? null : weightVal,
+                        finish: row.finish ? String(row.finish).trim() : "",
+                        size: row.size ? String(row.size).trim() : "",
+                        unit_value: row.unit_value === "" || row.unit_value === undefined || row.unit_value === null ? 0 : Math.max(0, Math.floor(Number(row.unit_value)) || 0),
+                        packageUnit: row.packageUnit ? String(row.packageUnit).trim() : "",
+                        priceConfig: row.priceConfig === "package" ? "package" : "qty",
+                    };
+                })
                 .filter((r) => r.name);
 
             if (parsedItems.length === 0) {
-                setError("No valid items found in the Excel file. Ensure columns: name, unit, defaultPrice, image, cbm, weight, finish, size, unit_value.");
+                setError("No valid items found in the Excel file. Ensure columns: name, unit, defaultPrice, image, cbm, weight, finish, size, unit_value, packageUnit, priceConfig.");
                 return;
             }
 
@@ -290,7 +302,7 @@ export default function ItemsPage() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Unit
@@ -303,6 +315,36 @@ export default function ItemsPage() {
                                         placeholder="PCS"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Unit for (Package)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={form.packageUnit}
+                                        onChange={(e) => setForm({ ...form, packageUnit: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="Ex . Carton, Petti, etc"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Unit Value
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={form.unit_value}
+                                        onChange={(e) => setForm({ ...form, unit_value: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="0"
+                                    />
+                                </div>
+
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Default Price
@@ -318,6 +360,35 @@ export default function ItemsPage() {
                                         className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="0.00"
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Price Configuration
+                                    </label>
+                                    <div className="flex items-center gap-4 pt-1">
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                name="p_config"
+                                                value="package"
+                                                checked={form.priceConfig === "package"}
+                                                onChange={(e) => setForm({ ...form, priceConfig: e.target.value as "package" | "qty" })}
+                                                className="focus:ring-indigo-500"
+                                            />
+                                            Per Package
+                                        </label>
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                name="p_config"
+                                                value="qty"
+                                                checked={form.priceConfig === "qty"}
+                                                onChange={(e) => setForm({ ...form, priceConfig: e.target.value as "package" | "qty" })}
+                                                className="focus:ring-indigo-500"
+                                            />
+                                            Per Quantity
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -426,20 +497,8 @@ export default function ItemsPage() {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Unit Value
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={form.unit_value}
-                                    onChange={(e) => setForm({ ...form, unit_value: e.target.value })}
-                                    className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="0"
-                                />
-                            </div>
+
+
 
                             <div className="flex gap-2 pt-1">
                                 <button
@@ -520,6 +579,12 @@ export default function ItemsPage() {
                                                 )}
                                                 {item.unit_value !== null && item.unit_value !== undefined && item.unit_value !== 0 && (
                                                     <span> · Unit Value {item.unit_value}</span>
+                                                )}
+                                                {item.packageUnit && (
+                                                    <span> · Pkg {item.packageUnit}</span>
+                                                )}
+                                                {item.priceConfig && (
+                                                    <span> · Price/{item.priceConfig === "package" ? "Package" : "Qty"}</span>
                                                 )}
                                             </div>
                                         </div>

@@ -40,14 +40,16 @@ export async function POST(request: NextRequest) {
       typeof raw.unit === "string" && raw.unit.trim() ? raw.unit.trim() : "PCS";
     const defaultPrice = Number(raw.defaultPrice) || 0;
     const image = await saveImage(raw.image);
+    const cbmVal = Number(raw.cbm);
+    const weightVal = Number(raw.weight);
     const cbm =
-      raw.cbm === "" || raw.cbm === null || raw.cbm === undefined
+      raw.cbm === "" || raw.cbm === null || raw.cbm === undefined || isNaN(cbmVal)
         ? null
-        : Number(raw.cbm);
+        : cbmVal;
     const weight =
-      raw.weight === "" || raw.weight === null || raw.weight === undefined
+      raw.weight === "" || raw.weight === null || raw.weight === undefined || isNaN(weightVal)
         ? null
-        : Number(raw.weight);
+        : weightVal;
     const finish = typeof raw.finish === "string" ? raw.finish.trim() : "";
     const size = typeof raw.size === "string" ? raw.size.trim() : "";
     const unit_value =
@@ -56,6 +58,9 @@ export async function POST(request: NextRequest) {
       raw.unit_value === undefined
         ? 0
         : Math.max(0, Math.floor(Number(raw.unit_value)) || 0);
+    const packageUnit =
+      typeof raw.packageUnit === "string" ? raw.packageUnit.trim() : "";
+    const priceConfig = raw.priceConfig === "package" ? "package" : "qty";
 
     const data = {
       name,
@@ -67,6 +72,8 @@ export async function POST(request: NextRequest) {
       finish,
       size,
       unit_value,
+      packageUnit,
+      priceConfig,
     };
 
     try {

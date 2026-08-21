@@ -13,6 +13,8 @@ interface Item {
     weight: number | null;
     image: string | null;
     unit_value: number;
+    packageUnit: string;
+    priceConfig: "package" | "qty";
     finish: string;
     size: string;
 }
@@ -23,6 +25,8 @@ interface Row {
     itemName: string;
     unit: string;
     unit_value: number;
+    packageUnit: string;
+    priceConfig: "package" | "qty";
     finish: string;
     size: string;
     qty: string;
@@ -36,8 +40,19 @@ interface Row {
 
 let rowCounter = 1;
 
-const currency = (n: number) =>
-    "₹" + (isFinite(n) ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "0");
+const CURRENCY_SYMBOLS: Record<string, string> = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    AED: "د.إ",
+    CNY: "¥",
+};
+
+const getCurrencySymbol = (code: string) => CURRENCY_SYMBOLS[code] || code + " ";
+
+const currency = (n: number, symbol: string) =>
+    symbol + (isFinite(n) ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "0");
 
 const fmt = (n: number | null | undefined) =>
     n === null || n === undefined || !isFinite(n) ? "—" : Number(n.toFixed(3)).toLocaleString("en-IN");
@@ -48,6 +63,9 @@ const effUnitValue = (uv: number | null | undefined) =>
 const totalQty = (qty: number, uv: number | null | undefined) =>
     qty * effUnitValue(uv);
 
+const calcAmount = (qty: number, price: number, uv: number | null | undefined, priceConfig: string) =>
+    priceConfig === "qty" ? totalQty(qty, uv) * price : qty * price;
+
 function CreateQuotationPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -56,6 +74,7 @@ function CreateQuotationPage() {
     const [items, setItems] = useState<Item[]>([]);
     const [partyName, setPartyName] = useState("");
     const [partyPhone, setPartyPhone] = useState("");
+    const [currencyCode, setCurrencyCode] = useState("INR");
     const [rows, setRows] = useState<Row[]>([]);
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -93,6 +112,7 @@ function CreateQuotationPage() {
                 if (cancelled || !q) return;
                 setPartyName(q.partyName || "");
                 setPartyPhone(q.partyPhone || "");
+                setCurrencyCode(q.currency || "INR");
                 setRows(
                     (q.items || []).map((it: any) => ({
                         id: rowCounter++,
@@ -100,6 +120,8 @@ function CreateQuotationPage() {
                         itemName: it.itemName,
                         unit: it.unit || "",
                         unit_value: Math.max(0, Number(it.unit_value) || 0),
+                        packageUnit: it.packageUnit || "",
+                        priceConfig: it.priceConfig === "package" ? "package" : "qty",
                         finish: it.finish || "",
                         size: it.size || "",
                         qty: String(it.qty),
@@ -127,6 +149,8 @@ function CreateQuotationPage() {
                 itemName: row.itemName,
                 unit: row.unit,
                 unit_value: row.unit_value,
+                packageUnit: row.packageUnit,
+                priceConfig: row.priceConfig,
                 finish: row.finish,
                 size: row.size,
                 qty: String(Number(row.qty) || 1),
@@ -137,7 +161,7 @@ function CreateQuotationPage() {
             });
         } else {
             setEditingRowId(null);
-            setDraft({ itemId: "", itemName: "", qty: "1", price: "", cbm: null, weight: null });
+            setDraft({ itemId: "", itemName: "", qty: "1", price: "", cbm: null, weight: null, packageUnit: "", priceConfig: "qty" });
         }
         setModalOpen(true);
     }
@@ -156,6 +180,8 @@ function CreateQuotationPage() {
             itemName: item ? item.name : "",
             unit: item ? item.unit : "",
             unit_value: item ? item.unit_value : 0,
+            packageUnit: item ? item.packageUnit : "",
+            priceConfig: item ? item.priceConfig : "qty",
             finish: item ? item.finish : "",
             size: item ? item.size : "",
             price: item ? String(item.defaultPrice) : "",
@@ -173,7 +199,10 @@ function CreateQuotationPage() {
             return;
         }
         const uv = draft.unit_value !== undefined ? draft.unit_value : 0;
-        const amount = totalQty(qty, uv) * price;
+        const pkgUnit = draft.packageUnit || "";
+        const pConfig = draft.priceConfig === "package" ? "package" : "qty";
+        const finalQty = pConfig === "qty" ? totalQty(qty, uv) : qty;
+        const amount = finalQty * price;
         setRows((prev) => {
             const updatedRow: Row = {
                 id: editingRowId ?? rowCounter++,
@@ -181,6 +210,8 @@ function CreateQuotationPage() {
                 itemName: draft.itemName!,
                 unit: draft.unit || "",
                 unit_value: uv,
+                packageUnit: pkgUnit,
+                priceConfig: pConfig,
                 finish: draft.finish || "",
                 size: draft.size || "",
                 qty: String(qty),
@@ -235,10 +266,13 @@ function CreateQuotationPage() {
                 body: JSON.stringify({
                     partyName,
                     partyPhone,
+                    currency: currencyCode,
                     items: validRows.map((r) => ({
                         itemName: r.itemName,
                         unit: r.unit,
                         unit_value: r.unit_value,
+                        packageUnit: r.packageUnit,
+                        priceConfig: r.priceConfig,
                         finish: r.finish,
                         size: r.size,
                         qty: Number(r.qty),
@@ -284,6 +318,28 @@ function CreateQuotationPage() {
                 )}
 
                 <form onSubmit={handleSubmit}>
+                    {/* Currency */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+                        <h2 className="font-semibold text-gray-800 mb-4">Currency</h2>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Currency *
+                            </label>
+                            <select
+                                value={currencyCode}
+                                onChange={(e) => setCurrencyCode(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="INR">INR - ₹</option>
+                                <option value="USD">USD - $</option>
+                                <option value="EUR">EUR - €</option>
+                                <option value="GBP">GBP - £</option>
+                                <option value="AED">AED - د.إ</option>
+                                <option value="CNY">CNY - ¥</option>
+                            </select>
+                        </div>
+                    </div>
+
                     {/* Party details */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
                         <h2 className="font-semibold text-gray-800 mb-4">Party Details</h2>
@@ -381,6 +437,11 @@ function CreateQuotationPage() {
                                                         {row.unit_value > 0 && row.unit_value} - {row.unit}
                                                     </span>
                                                 )}
+                                                {row.priceConfig === "package" && row.packageUnit && (
+                                                    <span className="shrink-0 rounded bg-amber-100 px-1 py-0.2 text-[10px] font-medium text-amber-700">
+                                                        /{row.packageUnit}
+                                                    </span>
+                                                )}
                                             </div>
 
 
@@ -437,10 +498,13 @@ function CreateQuotationPage() {
                                             <div className="min-w-0">
                                                 <div className="text-[9px] font-bold uppercase text-gray-400 leading-none mb-0.5">Price</div>
                                                 <div className="text-gray-500 text-[10px] truncate">
-                                                    U: <span className="text-gray-700">{currency(Number(row.price) || 0)}</span>
+                                                    U: <span className="text-gray-700">{currency(Number(row.price) || 0, getCurrencySymbol(currencyCode))}</span>
+                                                    {row.priceConfig === "package" && row.packageUnit && (
+                                                        <span className="text-[10px] text-amber-600 ml-1">/{row.packageUnit}</span>
+                                                    )}
                                                 </div>
                                                 <div className="font-bold text-gray-900 truncate">
-                                                    T: {currency(row.amount)}
+                                                    T: {currency(row.amount, getCurrencySymbol(currencyCode))}
                                                 </div>
                                             </div>
 
@@ -487,7 +551,7 @@ function CreateQuotationPage() {
                         <div className="flex items-center justify-between border-t border-gray-100 pt-3">
                             <span className="font-semibold text-gray-800">Grand Total</span>
                             <span className="text-2xl font-bold text-indigo-600">
-                                {currency(grandTotal)}
+                                {currency(grandTotal, getCurrencySymbol(currencyCode))}
                             </span>
                         </div>
                     </div>
@@ -560,6 +624,10 @@ function CreateQuotationPage() {
                                     {(draft.unit_value !== undefined && draft.unit_value > 0) && (
                                         <span> · each CTN {effUnitValue(draft.unit_value)} {draft.unit}</span>
                                     )}
+                                    {draft.packageUnit && (
+                                        <span> · Pkg {draft.packageUnit}</span>
+                                    )}
+                                    <span> · Price/{draft.priceConfig === "package" ? "Package" : "Qty"}</span>
                                     {draft.finish && (
                                         <span> · Finish {draft.finish}</span>
                                     )}
@@ -578,20 +646,6 @@ function CreateQuotationPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Qty *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="any"
-                                        value={draft.qty}
-                                        onChange={(e) => setDraft({ ...draft, qty: e.target.value })}
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Price
                                     </label>
                                     <input
@@ -601,20 +655,81 @@ function CreateQuotationPage() {
                                         value={draft.price}
                                         onChange={(e) => setDraft({ ...draft, price: e.target.value })}
                                         className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Qty *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={draft.qty}
+                                        onChange={(e) => setDraft({ ...draft, qty: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Price Config
+                                </label>
+                                <div className="flex gap-2">
+                                    <label className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-medium transition ${draft.priceConfig === "qty" ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+                                        <input
+                                            type="radio"
+                                            name="priceConfig"
+                                            value="qty"
+                                            checked={draft.priceConfig === "qty"}
+                                            onChange={(e) => setDraft({ ...draft, priceConfig: e.target.value as "package" | "qty" })}
+                                            className="sr-only"
+                                        />
+                                        Per Qty
+                                    </label>
+                                    <label className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-medium transition ${draft.priceConfig === "package" ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+                                        <input
+                                            type="radio"
+                                            name="priceConfig"
+                                            value="package"
+                                            checked={draft.priceConfig === "package"}
+                                            onChange={(e) => setDraft({ ...draft, priceConfig: e.target.value as "package" | "qty" })}
+                                            className="sr-only"
+                                        />
+                                        Per Package
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* {draft.priceConfig === "package" && ( */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Package Unit
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={draft.packageUnit}
+                                        onChange={(e) => setDraft({ ...draft, packageUnit: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="e.g. CTN, BOX"
+                                    />
+                                </div>
+                            {/* )} */}
+
                             <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
                                 <span className="text-sm font-medium text-gray-600">
-                                    Total Qty / Amount
+                                    {draft.priceConfig === "qty" ? "Total Qty / Amount" : "Total / Amount"}
                                 </span>
                                 <span className="text-right">
                                     <span className="block text-xs text-gray-500">
-                                        {totalQty(Number(draft.qty) || 0, draft.unit_value)} {draft.unit || "units"}
+                                        {draft.priceConfig === "qty"
+                                            ? `${totalQty(Number(draft.qty) || 0, draft.unit_value)} ${draft.unit || "units"}`
+                                            : `${Number(draft.qty) || 0} ${draft.packageUnit || draft.unit || "pkg"}`}
                                     </span>
                                     <span className="font-semibold text-gray-800">
-                                        {currency(totalQty(Number(draft.qty) || 0, draft.unit_value) * (Number(draft.price) || 0))}
+                                        {currency(calcAmount(Number(draft.qty) || 0, Number(draft.price) || 0, draft.unit_value, draft.priceConfig || "qty"), getCurrencySymbol(currencyCode))}
                                     </span>
                                 </span>
                             </div>

@@ -25,12 +25,15 @@ model Item {
   finish       String  @default("")
   size         String  @default("")
   unit_value   Int     @default(0)
+  packageUnit  String  @default("")
+  priceConfig  String  @default("qty")
 }
 
 model Quotation {
   id          Int      @id @default(autoincrement())
   partyName   String
   partyPhone  String?
+  currency    String   @default("INR")
   totalAmount Float    @default(0)
   createdAt   DateTime @default(now())
   items       QuotationItem[]
@@ -43,6 +46,8 @@ model QuotationItem {
   itemName    String
   unit        String   @default("PCS")
   unit_value  Int      @default(0)
+  packageUnit String   @default("")
+  priceConfig String   @default("qty")
   finish      String   @default("")
   size        String   @default("")
   qty         Float    @default(1)

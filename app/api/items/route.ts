@@ -60,14 +60,16 @@ export async function POST(request: NextRequest) {
     const unit = typeof body.unit === "string" ? body.unit.trim() : "PCS";
     const defaultPrice = Number(body.defaultPrice) || 0;
     const image = await saveImage(body.image);
+    const cbmVal = Number(body.cbm);
+    const weightVal = Number(body.weight);
     const cbm =
-      body.cbm === "" || body.cbm === null || body.cbm === undefined
+      body.cbm === "" || body.cbm === null || body.cbm === undefined || isNaN(cbmVal)
         ? null
-        : Number(body.cbm);
+        : cbmVal;
     const weight =
-      body.weight === "" || body.weight === null || body.weight === undefined
+      body.weight === "" || body.weight === null || body.weight === undefined || isNaN(weightVal)
         ? null
-        : Number(body.weight);
+        : weightVal;
     const finish = typeof body.finish === "string" ? body.finish.trim() : "";
     const size = typeof body.size === "string" ? body.size.trim() : "";
     const unit_value =
@@ -76,6 +78,9 @@ export async function POST(request: NextRequest) {
       body.unit_value === undefined
         ? 0
         : Math.max(0, Math.floor(Number(body.unit_value)) || 0);
+    const packageUnit =
+      typeof body.packageUnit === "string" ? body.packageUnit.trim() : "";
+    const priceConfig = body.priceConfig === "package" ? "package" : "qty";
 
     if (!name) {
       return NextResponse.json(
@@ -95,6 +100,8 @@ export async function POST(request: NextRequest) {
         finish,
         size,
         unit_value,
+        packageUnit,
+        priceConfig,
       },
     });
 

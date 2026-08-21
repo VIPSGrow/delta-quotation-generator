@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
       typeof body.partyName === "string" ? body.partyName.trim() : "";
     const partyPhone =
       typeof body.partyPhone === "string" ? body.partyPhone.trim() : "";
+    const currency =
+      typeof body.currency === "string" ? body.currency.trim() : "INR";
     const items = Array.isArray(body.items) ? body.items : [];
 
     if (!partyName) {
@@ -66,16 +68,25 @@ export async function POST(request: NextRequest) {
           row.unit_value === undefined
             ? 0
             : Math.max(0, Math.floor(Number(row.unit_value)) || 0);
-        const finalQty = qty * (unit_value > 0 ? unit_value : 1);
+        const packageUnit =
+          typeof row.packageUnit === "string" ? row.packageUnit.trim() : "";
+        const priceConfig =
+          row.priceConfig === "package" ? "package" : "qty";
+        const finalQty =
+          priceConfig === "qty"
+            ? qty * (unit_value > 0 ? unit_value : 1)
+            : qty;
         const amount = finalQty * price;
+        const cbmVal = Number(row.cbm);
+        const weightVal = Number(row.weight);
         const cbm =
-          row.cbm === "" || row.cbm === null || row.cbm === undefined
+          row.cbm === "" || row.cbm === null || row.cbm === undefined || isNaN(cbmVal)
             ? null
-            : Number(row.cbm);
+            : cbmVal;
         const weight =
-          row.weight === "" || row.weight === null || row.weight === undefined
+          row.weight === "" || row.weight === null || row.weight === undefined || isNaN(weightVal)
             ? null
-            : Number(row.weight);
+            : weightVal;
         const image =
           row.image === "" || row.image === null || row.image === undefined
             ? null
@@ -88,6 +99,8 @@ export async function POST(request: NextRequest) {
           itemName,
           unit,
           unit_value,
+          packageUnit,
+          priceConfig,
           finish,
           size,
           qty,
@@ -102,6 +115,8 @@ export async function POST(request: NextRequest) {
       itemName: string;
       unit: string;
       unit_value: number;
+      packageUnit: string;
+      priceConfig: string;
       finish: string;
       size: string;
       qty: number;
@@ -125,6 +140,7 @@ export async function POST(request: NextRequest) {
       data: {
         partyName,
         partyPhone: partyPhone || null,
+        currency,
         totalAmount,
         items: {
           create: lineItems,

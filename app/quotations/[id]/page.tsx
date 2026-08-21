@@ -4,9 +4,22 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import PrintButton from "@/components/PrintButton";
 
-const currency = (n: number) =>
-    "₹" +
-    (isFinite(n) ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "0");
+const CURRENCY_SYMBOLS: Record<string, string> = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    AED: "د.إ",
+    CNY: "¥",
+};
+
+const getCurrencySymbol = (code: string) => CURRENCY_SYMBOLS[code] || code + " ";
+
+const currency = (n: number, symbol: string) =>
+    symbol + (isFinite(n) ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "0");
+
+const fmt = (n: number | null | undefined) =>
+    n === null || n === undefined || !isFinite(n) ? "—" : Number(n.toFixed(3)).toLocaleString("en-IN");
 
 function formatDate(iso: Date) {
     return new Date(iso).toLocaleDateString("en-IN", {
@@ -40,6 +53,15 @@ export default async function QuotationDetailPage({
 
 
     const quoteRef = `QT-${String(quotation.id).padStart(6, "0")}`;
+
+    const totalCbm = quotation.items.reduce(
+        (sum, item) => sum + (item.cbm || 0) * item.qty * item.unit_value,
+        0
+    );
+    const totalWeight = quotation.items.reduce(
+        (sum, item) => sum + (item.weight || 0) * item.qty * item.unit_value,
+        0
+    );
 
     return (
         <main className="min-h-screen bg-gray-100">
@@ -110,10 +132,10 @@ export default async function QuotationDetailPage({
                                         Size
                                     </th>
                                     <th className="py-2 px-1 font-semibold text-gray-100 w-12 text-center border bg-gray-700">
-                                        Packing
+                                        Per Package
                                     </th>
                                     <th className="py-2 px-1 font-semibold text-gray-100 w-12 text-center border bg-gray-700">
-                                        CTN
+                                        Package
                                     </th>
                                     <th className="py-2 px-2 font-semibold text-gray-100 text-right w-16 border text-center bg-gray-700">
                                         Qty
@@ -155,17 +177,17 @@ export default async function QuotationDetailPage({
                                         </td>
 
                                         <td className="py-2.5 border px-2 text-right text-gray-800">
-                                            {item.qty}
+                                            {item.qty} - {item.packageUnit}
                                         </td>
 
                                         <td className="py-2.5 border px-2 text-right text-gray-800">
                                             {item.qty * item.unit_value}
                                         </td>
                                         <td className="py-2.5 border px-2 text-right text-gray-800">
-                                            {currency(item.price)}
+                                            {currency(item.price, getCurrencySymbol(quotation.currency))}
                                         </td>
                                         <td className="py-2.5 border pe-2 text-right font-medium text-gray-800">
-                                            {currency(item.amount)}
+                                            {currency(item.amount, getCurrencySymbol(quotation.currency))}
                                         </td>
                                     </tr>
                                 ))}
@@ -176,10 +198,18 @@ export default async function QuotationDetailPage({
                     {/* Total */}
                     <div className="flex justify-end mt-4">
                         <div className="w-full max-w-xs">
-                            <div className="flex items-center justify-between border-t-2 border-gray-800 pt-3 mt-2">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <span>Total CBM</span>
+                                <span className="font-medium text-gray-800">{fmt(totalCbm)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm text-gray-600 mt-1">
+                                <span>Total Weight</span>
+                                <span className="font-medium text-gray-800">{fmt(totalWeight)} kg</span>
+                            </div>
+                            <div className="flex items-center justify-between border-t-2 border-gray-800 pt-3 mt-3">
                                 <span className="font-bold text-gray-800">Grand Total</span>
                                 <span className="text-xl font-bold text-indigo-600">
-                                    {currency(quotation.totalAmount)}
+                                    {currency(quotation.totalAmount, getCurrencySymbol(quotation.currency))}
                                 </span>
                             </div>
                         </div>
